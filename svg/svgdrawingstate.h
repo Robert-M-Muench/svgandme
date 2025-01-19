@@ -25,16 +25,19 @@ namespace waavs {
         // Paint
         BLVar fDefaultColor{};
         BLVar fFillPaint{};
-        BLVar fStrokePaint{};
+
         uint32_t fPaintOrder{ PaintOrderKind::SVG_PAINT_ORDER_NORMAL };
 
+        // Stroking
+        double fStrokeWidth{ 1.0 };
+        BLVar fStrokePaint{};
+        
         // Typography
         BLPoint fTextCursor{};
-        TXTALIGNMENT fTextHAlignment = LEFT;
+        SVGAlignment fTextHAlignment = SVGAlignment::SVG_ALIGNMENT_START;
         TXTALIGNMENT fTextVAlignment = BASELINE;
 
         // Fontography
-        FontHandler* fFontHandler{ nullptr };
         BLFont fFont{};
         ByteSpan fFamilyNames{ "Arial" };
         float fFontSize{ 16 };
@@ -63,6 +66,8 @@ namespace waavs {
             fPaintOrder = other.fPaintOrder;
             fDefaultColor.assign(other.fDefaultColor);
             fFillPaint.assign(other.fFillPaint);
+
+			fStrokeWidth = other.fStrokeWidth;
             fStrokePaint.assign(other.fStrokePaint);
             
 
@@ -70,7 +75,7 @@ namespace waavs {
             fTextHAlignment = other.fTextHAlignment;
             fTextVAlignment = other.fTextVAlignment;
 
-            fFontHandler = other.fFontHandler;
+            //fFontHandler = other.fFontHandler;
             fFont = other.fFont;
 
             fFamilyNames = other.fFamilyNames;
@@ -81,7 +86,7 @@ namespace waavs {
         }
 
         // Assignment operator
-        SVGDrawingState& operator=(const SVGDrawingState& other) noexcept
+        virtual SVGDrawingState& operator=(const SVGDrawingState& other) noexcept
         {
             if (this == &other)
                 return *this;
@@ -96,13 +101,15 @@ namespace waavs {
             fPaintOrder = other.fPaintOrder;
             fDefaultColor.assign(other.fDefaultColor);
             fFillPaint.assign(other.fFillPaint);
+
+			fStrokeWidth = other.fStrokeWidth;
             fStrokePaint.assign(other.fStrokePaint);
 
 
             fTextHAlignment = other.fTextHAlignment;
             fTextVAlignment = other.fTextVAlignment;
 
-            fFontHandler = other.fFontHandler;
+            //fFontHandler = other.fFontHandler;
             fFont = other.fFont;
 
             fFamilyNames = other.fFamilyNames;
@@ -115,6 +122,9 @@ namespace waavs {
             return *this;
         }
 
+        // Resetting the state
+        virtual void resetFont() {}
+        
         void reset()
         {
             fClipRect = BLRect{};
@@ -126,9 +136,10 @@ namespace waavs {
             fStrokePaint = BLVar::null();
             fPaintOrder = PaintOrderKind::SVG_PAINT_ORDER_NORMAL;
 
-            fTextHAlignment = LEFT;
+            fTextHAlignment = SVGAlignment::SVG_ALIGNMENT_START;
             fTextVAlignment = BASELINE;
 
+            fFont.reset();
             fFamilyNames = "Arial";
             fFontSize = 16;
             fFontStyle = BL_FONT_STYLE_NORMAL;
@@ -138,22 +149,27 @@ namespace waavs {
             resetFont();
         }
 
-        void resetFont()
-        {
-            if (nullptr != fFontHandler)
-            {
-                BLFont aFont;
-                if (fFontHandler->selectFont(fFamilyNames, aFont, fFontSize, fFontStyle, fFontWeight, fFontStretch))
-                    fFont = aFont;
-            }
 
+        /// <summary>
+        ///  Set various attributes of the state
+        /// </summary>
+        /// <param name="r"></param>
+        void setViewport(const BLRect& r) {
+            fViewport = r;
         }
+        BLRect viewport() const { return fViewport; }
+        
+        void objectFrame(const BLRect& r) {
+            fObjectFrame = r;
+        }
+        BLRect objectFrame() const { return fObjectFrame; }
 
-        const BLRect& clipRect() const { return fClipRect; }
-        void setClipRect(const BLRect& aRect) { fClipRect = aRect; }
+        
+        const BLRect& getClipRect() const { return fClipRect; }
+        virtual void clipRect(const BLRect& aRect) { fClipRect = aRect; }
 
         uint32_t paintOrder() const { return fPaintOrder; }
-        void paintOrder(const uint32_t order) { fPaintOrder = order; }
+        virtual void paintOrder(const uint32_t order) { fPaintOrder = order; }
         
         const BLVar& defaultColor() const { return fDefaultColor; }
         void defaultColor(const BLVar& color) { fDefaultColor.assign(color); }
@@ -166,21 +182,16 @@ namespace waavs {
         
         
 
-        // Typography State
-        void fontHandler(FontHandler* handler) noexcept
-        {
-            fFontHandler = handler;
-
-            // Select a default faunt to start
-            if (fFontHandler != nullptr) {
-                resetFont();
-            }
+        virtual void strokeWidth(double sw) { 
+            fStrokeWidth = sw; 
         }
+        virtual double getStrokeWidth() const { return fStrokeWidth; }
 
 
 
-        TXTALIGNMENT textAnchor() const { return fTextHAlignment; }
-        void textAnchor(TXTALIGNMENT anchor)
+        // Typography
+        SVGAlignment textAnchor() const { return fTextHAlignment; }
+        void textAnchor(SVGAlignment anchor)
         {
             fTextHAlignment = anchor;
         }
@@ -194,11 +205,19 @@ namespace waavs {
         BLPoint textCursor() const { return fTextCursor; }
         void textCursor(const BLPoint& cursor) { fTextCursor = cursor; }
 
+
+        // Fontography
+        const BLFont& font() const { return fFont; }
+        virtual void font(BLFont& afont) { fFont = afont; }
+        
         void fontFamily(const ByteSpan& familyNames) noexcept
         {
             fFamilyNames = familyNames;
             resetFont();
         }
+
+
+
 
         double fontSize() const noexcept { return fFontSize; }
         void fontSize(float size) noexcept
